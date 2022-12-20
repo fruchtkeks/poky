@@ -71,11 +71,6 @@ _thread_lock = threading.Lock()
 _thread_lock_enabled = False
 _heartbeat_enabled = False
 
-if hasattr(__builtins__, '__setitem__'):
-    builtins = __builtins__
-else:
-    builtins = __builtins__.__dict__
-
 def enable_threadlock():
     global _thread_lock_enabled
     _thread_lock_enabled = True
@@ -94,12 +89,8 @@ def disable_heartbeat():
 
 def execute_handler(name, handler, event, d):
     event.data = d
-    addedd = False
-    if 'd' not in builtins:
-        builtins['d'] = d
-        addedd = True
     try:
-        ret = handler(event)
+        ret = handler(event, d)
     except (bb.parse.SkipRecipe, bb.BBHandledException):
         raise
     except Exception:
@@ -113,8 +104,7 @@ def execute_handler(name, handler, event, d):
         raise
     finally:
         del event.data
-        if addedd:
-            del builtins['d']
+
 
 def fire_class_handlers(event, d):
     if isinstance(event, logging.LogRecord):
@@ -262,12 +252,12 @@ def register(name, handler, mask=None, filename=None, lineno=None, data=None):
     if handler is not None:
         # handle string containing python code
         if isinstance(handler, str):
-            tmp = "def %s(e):\n%s" % (name, handler)
+            tmp = "def %s(e, d):\n%s" % (name, handler)
             try:
                 code = bb.methodpool.compile_cache(tmp)
                 if not code:
                     if filename is None:
-                        filename = "%s(e)" % name
+                        filename = "%s(e, d)" % name
                     code = compile(tmp, filename, "exec", ast.PyCF_ONLY_AST)
                     if lineno is not None:
                         ast.increment_lineno(code, lineno-1)
